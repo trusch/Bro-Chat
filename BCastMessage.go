@@ -2,16 +2,19 @@ package main
 
 import (
 	"strings"
+	"net"
 )
 
 type BCastMessage struct {
 	SenderNick	string
 	Channel		string
 	Payload		string
+	
+	IP			net.IP
 }
 
 func NewBCastMessage(senderNick,channel,payload string) *BCastMessage {
-	return &BCastMessage{senderNick,channel,payload}
+	return &BCastMessage{senderNick,channel,payload,nil}
 }
 
 func (m *BCastMessage) ToBytes() []byte {

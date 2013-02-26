@@ -28,12 +28,14 @@ func NewBCastReceiver(port int) (*BCastReceiver,error){
 	go func(){
 	    data := make([]byte, (1<<16)-1)  //maximal udp packet size
 		for {
-		    read, _ , err := result.conn.ReadFromUDP(data[0:])
+		    read, addr , err := result.conn.ReadFromUDP(data[0:])
 		    if err!=nil {
-		    	log.Print("BCastReceiver:: ",err)
+		    	log.Print("BCastReceiver:: ",err,addr)
 		    	continue
 		    }
-		    result.msgs <- BCastMessageFromBytes(data[:read])
+		    msg := BCastMessageFromBytes(data[:read])
+		    msg.IP = addr.IP
+		    result.msgs <- msg
 		}
 	}()
 	return result,nil

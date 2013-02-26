@@ -7,6 +7,7 @@ import(
 	"unsafe"
 	"os"
 	"log"
+	"time"
 )
 
 type GtkUI struct {
@@ -29,16 +30,32 @@ func (ui *GtkUI) Run() error{
 		for {
 			msg := ui.ReadNextMessage()
 			if msg!=nil {
-				gdk.ThreadsEnter()
-				buff := ui.outputElem.GetBuffer()
-				buff.InsertAtCursor(msg.String()+"\n")
-				var end gtk.TextIter
-				buff.GetEndIter(&end)
-				ui.outputElem.ScrollToIter(&end,0,false,0,0)
-				gdk.ThreadsLeave()
+				ui.UpdateWhoMap(msg)
+				ui.ProcessOutput(msg.String()+"\n")
 			}else{
 				log.Print("nil msg (timeout?)")
 			}
+		}
+	}()
+	go func(){
+		for msg := range ui.OutChan {
+			log.Print("output to gtk window: ",msg)
+			gdk.ThreadsEnter()
+			buff := ui.outputElem.GetBuffer()
+			buff.InsertAtCursor(msg)
+			gdk.ThreadsLeave()			
+		}
+	}()
+	go func(){
+		ticker := time.Tick(100*time.Millisecond)
+		for{
+			<-ticker
+			gdk.ThreadsEnter()
+			buff := ui.outputElem.GetBuffer()
+			var end gtk.TextIter
+			buff.GetEndIter(&end)
+			ui.outputElem.ScrollToIter(&end,0,false,0,0)
+			gdk.ThreadsLeave()		
 		}
 	}()
 	return nil
@@ -97,7 +114,7 @@ func (ui *GtkUI) initGtk(){
 		}
 	})
 
-	window.SetSizeRequest(350, 600)
+	window.SetSizeRequest(380, 600)
 	window.ShowAll()
 	
 	glib.ThreadInit(nil)

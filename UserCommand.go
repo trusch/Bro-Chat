@@ -12,6 +12,7 @@ const (
 	UC_CHANGE_NICK
 	UC_CHANGE_CHAN
 	UC_LEAVE
+	UC_INFO
 )
 
 type UserCommand struct {
@@ -44,6 +45,9 @@ func NewUserCommand(payload string) (*UserCommand,error) {
 			}
 			case strings.HasPrefix(firstWord,"/l")||strings.HasPrefix(firstWord,"/q"): {
 				cmd.Type = UC_LEAVE
+			}
+			case strings.HasPrefix(firstWord,"/i"): {
+				cmd.Type = UC_INFO
 			}
 		}
 	}
