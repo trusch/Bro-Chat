@@ -6,62 +6,35 @@ import(
 	"github.com/mattn/go-gtk/gdk"
 	"unsafe"
 	"os"
-	"log"
 	"time"
 )
 
 type GtkUI struct {
-
-	BaseUI
-
 	window		*gtk.Window
 	outputElem	*gtk.TextView
+	
+	userInput	chan string
 }
 
-func (ui *GtkUI) Init(sender *BCastSender,receiver *BCastReceiver) error {
-	ui.BaseUI.Init(sender,receiver)
-	ui.initGtk()
-	return nil
+func(ui *GtkUI) GetInput() string {
+	return <-ui.userInput
 }
 
-func (ui *GtkUI) Run() error{
-	go gtk.Main()
-	go func(){
-		for {
-			msg := ui.ReadNextMessage()
-			if msg!=nil {
-				ui.UpdateWhoMap(msg)
-				ui.ProcessOutput(msg.String()+"\n")
-			}else{
-				log.Print("nil msg (timeout?)")
-			}
-		}
-	}()
-	go func(){
-		for msg := range ui.OutChan {
-			log.Print("output to gtk window: ",msg)
-			gdk.ThreadsEnter()
-			buff := ui.outputElem.GetBuffer()
-			buff.InsertAtCursor(msg)
-			gdk.ThreadsLeave()			
-		}
-	}()
-	go func(){
-		ticker := time.Tick(100*time.Millisecond)
-		for{
-			<-ticker
-			gdk.ThreadsEnter()
-			buff := ui.outputElem.GetBuffer()
-			var end gtk.TextIter
-			buff.GetEndIter(&end)
-			ui.outputElem.ScrollToIter(&end,0,false,0,0)
-			gdk.ThreadsLeave()		
-		}
-	}()
-	return nil
+func(ui *GtkUI) ProcessOutput(output string){
+	gdk.ThreadsEnter()
+	buff := ui.outputElem.GetBuffer()
+	buff.InsertAtCursor(output)
+	gdk.ThreadsLeave()		
 }
 
-func (ui *GtkUI) initGtk(){
+func(ui *GtkUI) ProcessAlert(output string)  {
+	gdk.ThreadsEnter()
+	buff := ui.outputElem.GetBuffer()
+	buff.InsertAtCursor("ALERT: "+output)
+	gdk.ThreadsLeave()		
+}
+
+func (ui *GtkUI) InitGtk(){
 	gtk.Init(&os.Args)
 	window := gtk.NewWindow(gtk.WINDOW_TOPLEVEL)
 	window.SetTitle("Bro-Chat")
@@ -89,7 +62,7 @@ func (ui *GtkUI) initGtk(){
 	button := gtk.NewButtonWithLabel("Send it!")
 	button.Clicked(func() {
 			userInput := entry.GetText()
-			ui.ProcessUserInput(userInput)
+			ui.userInput <- userInput
 			entry.SetText("")
 		})
 	hbox.Add(button)
@@ -109,7 +82,7 @@ func (ui *GtkUI) initGtk(){
 		}
 		if kev.Keyval==65293 { //Return pressed
 			userInput := entry.GetText()
-			ui.ProcessUserInput(userInput)
+			ui.userInput <- userInput
 			entry.SetText("")
 		}
 	})
@@ -123,11 +96,27 @@ func (ui *GtkUI) initGtk(){
 	entry.GrabFocus()
 	
 	ui.window = window
+	
+	go gtk.Main()
+	
+	go func(){
+		ticker := time.Tick(100*time.Millisecond)
+		for{
+			<-ticker
+			gdk.ThreadsEnter()
+			buff := ui.outputElem.GetBuffer()
+			var end gtk.TextIter
+			buff.GetEndIter(&end)
+			ui.outputElem.ScrollToIter(&end,0,false,0,0)
+			gdk.ThreadsLeave()		
+		}
+	}()
 }
 
 
-func NewGtkUI(nick string) *GtkUI {
+func NewGtkUI() *GtkUI {
 	ui :=  new(GtkUI)
-	ui.Nickname = nick
+	ui.userInput = make(chan string,64)
+	ui.InitGtk()
 	return ui
 }

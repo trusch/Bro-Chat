@@ -3,7 +3,6 @@ package main
 import (
 	"flag"
 	"log"
-	"os"
 )
 
 var Nickname *string = flag.String("nick","Anonymous","Your Nickname")
@@ -13,22 +12,11 @@ var Port	 *int	 = flag.Int("port",1234,"The port used to broadcast")
 
 func main(){
 	flag.Parse()
-	
-	sender,err := NewBCastSender(*BCastIP,*Port)
+	_,err := NewBroChat(*BCastIP,*Port,*Port)
 	if err!=nil {
-		log.Print("can't setup Broadcast Sender")
 		log.Print(err)
-		os.Exit(1)
+		return
 	}
-	receiver,err := NewBCastReceiver(*Port)
-	if err!=nil {
-		log.Print("can't setup Broadcast Receiver")
-		log.Print(err)
-		os.Exit(1)
-	}
-	
-	ui := NewGtkUI(*Nickname)
-	ui.Init(sender,receiver)
-	ui.Run()
+	log.Print("All started!")
 	select{}
 }

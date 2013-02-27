@@ -19,6 +19,10 @@ type CurrentState struct {
 	WhoMap		map[string]*UserInformation	
 }
 
+func NewCurrentState() *CurrentState {
+	return &CurrentState{"Anonymous","#foyer",make(map[string]*UserInformation)}
+}
+
 func (cs *CurrentState) UpdateWhoMap(packet *BCastMessage){
 	name := packet.SenderNick
 	info,ok := cs.WhoMap[name]
