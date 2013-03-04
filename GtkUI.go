@@ -21,6 +21,9 @@ func(ui *GtkUI) GetInput() string {
 }
 
 func(ui *GtkUI) ProcessOutput(output string){
+	if output[len(output)-1]!='\n' {
+		output += "\n"
+	}
 	gdk.ThreadsEnter()
 	buff := ui.outputElem.GetBuffer()
 	buff.InsertAtCursor(output)

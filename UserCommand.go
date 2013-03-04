@@ -13,6 +13,8 @@ const (
 	UC_CHANGE_CHAN
 	UC_LEAVE
 	UC_INFO
+	UC_WHISPER
+	UC_HELP
 )
 
 type UserCommand struct {
@@ -48,6 +50,17 @@ func NewUserCommand(payload string) (*UserCommand,error) {
 			}
 			case strings.HasPrefix(firstWord,"/i"): {
 				cmd.Type = UC_INFO
+			}
+			case strings.HasPrefix(firstWord,"/w"): {
+				if len(parts)<2 {
+					err = errors.New("malformed command")
+					break
+				}
+				cmd.Type = UC_WHISPER
+				cmd.Payload = parts[1]
+			}
+			case strings.HasPrefix(firstWord,"/h"): {
+				cmd.Type = UC_HELP
 			}
 		}
 	}

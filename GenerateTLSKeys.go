@@ -51,14 +51,14 @@ func GenerateTLSKeys() ([]byte,[]byte){
 		return nil,nil
 	}
 	
-	var certOut *bytes.Buffer
+	certOut := new(bytes.Buffer)
 	
 	pem.Encode(certOut, &pem.Block{Type: "CERTIFICATE", Bytes: derBytes})
 	log.Print("written cert.pem\n")
 
 	
-	var keyOut *bytes.Buffer
-
+	keyOut := new(bytes.Buffer)
+	
 	pem.Encode(keyOut, &pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(priv)})
 	log.Print("written key.pem\n")
 

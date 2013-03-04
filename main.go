@@ -12,7 +12,7 @@ var Port	 *int	 = flag.Int("port",1234,"The port used to broadcast")
 
 func main(){
 	flag.Parse()
-	_,err := NewBroChat(*BCastIP,*Port,*Port)
+	_,err := NewBroChat(*BCastIP,*Port)
 	if err!=nil {
 		log.Print(err)
 		return

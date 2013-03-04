@@ -4,6 +4,8 @@ import (
 	"log"
 	"os"
 	"fmt"
+	"net"
+	"strings"
 )
 
 type BroChat struct {
@@ -13,25 +15,38 @@ type BroChat struct {
 	bCastReceiver	*BCastReceiver
 	
 	tlsAcceptor		*TLSAcceptor
+	tlsConnector	*TLSConnector
 	
 	userInterface	UI	
 }
 
-func NewBroChat(bCastIP string, bCastPort,tlsPort int) (*BroChat,error) {
+func NewBroChat(bCastIP string, port int) (*BroChat,error) {
 	bc := new(BroChat)
 	var err error
-	bc.bCastSender,err = NewBCastSender(bCastIP,bCastPort)
-	if err!=nil {
-		return nil,err
-	}
-	bc.bCastReceiver,err = NewBCastReceiver(bCastPort)
-	if err!=nil {
-		return nil,err
-	}
-	bc.state = NewCurrentState()
 	
+	bc.bCastSender,err = NewBCastSender(bCastIP,port)
+	if err!=nil {
+		return nil,err
+	}
+	
+	bc.bCastReceiver,err = NewBCastReceiver(port)
+	if err!=nil {
+		return nil,err
+	}
+	
+	bc.tlsAcceptor,err = NewTLSAcceptor(port)
+	if err!=nil {
+		return nil,err
+	}
+	
+	bc.tlsConnector = NewTLSConnector(port,bc.tlsAcceptor.GetConfig())
+	
+	bc.state = NewCurrentState()
 	bc.userInterface = NewGtkUI()
 	
+	/*
+	Get Input from UI and process it
+	*/
 	go func(){
 		for{
 			userInput := bc.userInterface.GetInput()
@@ -39,6 +54,10 @@ func NewBroChat(bCastIP string, bCastPort,tlsPort int) (*BroChat,error) {
 		}
 	}()
 	
+	/*
+	Get BroadcastMessages and process them
+	(recognize and display to ui)
+	*/
 	go func(){
 		for{
 			msg := bc.ReadNextMessage()
@@ -48,10 +67,38 @@ func NewBroChat(bCastIP string, bCastPort,tlsPort int) (*BroChat,error) {
 			}
 		}
 	}()
+	
+	/*
+	Accept Whisper-Connections and run handler
+	*/
+	go func(){
+		for{
+			conn := bc.tlsAcceptor.GetConn()
+			go func(){
+				defer conn.Close()
+				ip := conn.RemoteAddr().(*net.TCPAddr).IP
+				nick := bc.state.GetNickToIP(ip)
+				log.Print("Accepted BroConn from ",ip," nick: ",nick," fingerprint: ",conn.Fingerprint())
+				bc.tlsConnector.SetConn(nick,conn)
+				buff := make([]byte,1024)
+				for{
+					bs,err := conn.Read(buff[0:])
+					if err!=nil {
+						log.Print("finished connection: ",err)
+						break
+					}
+					msg := string(buff[:bs])
+					log.Print("received (tls) ",msg)
+					bc.userInterface.ProcessOutput(nick+" <(private)>: "+msg)					
+				}
+			}()
+		}
+	}()
 	return bc,nil
 }
 
 func (bc *BroChat) ProcessUserInput(input string){
+	//check for command. if no command: broadcast.
 	foundCommand,err := bc.ProcessPossibleCommand(input)
 	if foundCommand && err!=nil {
 		log.Print("malformed command. grml...")
@@ -82,8 +129,42 @@ func (bc *BroChat) ProcessPossibleCommand(payload string) (foundCommand bool,err
 			os.Exit(0)
 		}
 		case UC_INFO: {
-			bc.userInterface.ProcessOutput(bc.state.String()+"\n")
+			bc.userInterface.ProcessOutput(bc.state.String())
 			foundCommand = true
+		}
+		case UC_WHISPER: {
+			foundCommand = true
+			words := strings.SplitN(cmd.Payload," ",2)
+			if len(words)<2 {
+				break
+			}
+			target := words[0]
+			info,ok := bc.state.WhoMap[target]
+			if !ok {
+				bc.userInterface.ProcessOutput("Don't know who you mean.\n")
+				break
+			}
+			conn := bc.tlsConnector.Connect(target,info.IP)
+			bs,err := conn.Write([]byte(words[1]))
+			if err!=nil {
+				log.Print("fail...",err,bs)
+			}
+			log.Print("finished whispering")
+		}
+		case UC_HELP: {
+			foundCommand = true
+			text := []string{
+				"# Bro-Chat Help:",
+				"# Commands:",
+				"# /nick <new nickname>",
+				"# /join <new channel>",
+				"# /info",
+				"# /whisper <nickname> <message>",
+				"# /quit",
+			}
+			for _,line := range text {
+				bc.userInterface.ProcessOutput(line)
+			}
 		}
 	}
 	return

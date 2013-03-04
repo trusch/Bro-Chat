@@ -19,6 +19,15 @@ type CurrentState struct {
 	WhoMap		map[string]*UserInformation	
 }
 
+func (cs *CurrentState) GetNickToIP(ip net.IP) string {
+	for nick,info := range cs.WhoMap {
+		if info.IP.Equal(ip) {
+			return nick
+		}
+	}
+	return ""
+}
+
 func NewCurrentState() *CurrentState {
 	return &CurrentState{"Anonymous","#foyer",make(map[string]*UserInformation)}
 }
@@ -45,11 +54,10 @@ func (cs *CurrentState) UpdateWhoMap(packet *BCastMessage){
 }
 
 func (cs *CurrentState) String() string {
-	result := "#######################\n#Bro-Chat Information:\n#######################\n#Your Name: %v\n#Your Chan: %v\n"
+	result := "# Bro-Chat Information:\n# Your Name: %v\n# Your Chan: %v\n"
 	result = fmt.Sprintf(result,cs.Nickname,cs.Channel)
 	for _,info := range cs.WhoMap {
 		result += fmt.Sprintf("# %v@%v %v (%v)\n",info.Nickname,info.Channel,info.IP,info.LastTime)
 	}
-	result += "#######################"
 	return result
 }
